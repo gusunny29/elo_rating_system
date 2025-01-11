@@ -39,7 +39,9 @@ def calculate_elo(player1_elo, player2_elo, player1_wins):
 def get_players():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM players ORDER BY elo_rating DESC;")
+    cur.execute(
+        "SELECT player_id, name, elo_rating FROM players ORDER BY elo_rating DESC;"
+    )
     players = cur.fetchall()
     cur.close()
     conn.close()
