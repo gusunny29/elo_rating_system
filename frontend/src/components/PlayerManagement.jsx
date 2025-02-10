@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import AddPlayer from './AddPlayer';
 import Players from './Players';
 import Typography from '@mui/material/Typography';

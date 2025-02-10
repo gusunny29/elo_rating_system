@@ -39,9 +39,7 @@ def calculate_elo(player1_elo, player2_elo, player1_wins):
 def get_players():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute(
-        "SELECT player_id, name, elo_rating FROM players ORDER BY elo_rating DESC;"
-    )
+    cur.execute("SELECT id, name, elo_rating FROM players ORDER BY elo_rating DESC;")
     players = cur.fetchall()
     cur.close()
     conn.close()
@@ -59,7 +57,7 @@ def add_player():
     cur = conn.cursor()
 
     cur.execute(
-        "INSERT INTO players (name, elo_rating) VALUES (%s, %s) RETURNING player_id;",
+        "INSERT INTO players (name, elo_rating) VALUES (%s, %s) RETURNING id;",
         (name, elo_rating),
     )
     new_player_id = cur.fetchone()[0]
@@ -69,7 +67,7 @@ def add_player():
     conn.close()
 
     return (
-        jsonify({"player_id": new_player_id, "name": name, "elo_rating": elo_rating}),
+        jsonify({"id": new_player_id, "name": name, "elo_rating": elo_rating}),
         201,
     )
 
@@ -88,9 +86,9 @@ def create_match():
     # Get current Elo ratings
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT elo_rating FROM players WHERE player_id = %s;", (player1_id,))
+    cur.execute("SELECT elo_rating FROM players WHERE id = %s;", (player1_id,))
     player1_elo = cur.fetchone()[0]
-    cur.execute("SELECT elo_rating FROM players WHERE player_id = %s;", (player2_id,))
+    cur.execute("SELECT elo_rating FROM players WHERE id = %s;", (player2_id,))
     player2_elo = cur.fetchone()[0]
 
     # Calculate new Elo ratings
@@ -100,11 +98,11 @@ def create_match():
 
     # Update player Elo ratings
     cur.execute(
-        "UPDATE players SET elo_rating = %s WHERE player_id = %s;",
+        "UPDATE players SET elo_rating = %s WHERE id = %s;",
         (player1_new_elo, player1_id),
     )
     cur.execute(
-        "UPDATE players SET elo_rating = %s WHERE player_id = %s;",
+        "UPDATE players SET elo_rating = %s WHERE id = %s;",
         (player2_new_elo, player2_id),
     )
 
