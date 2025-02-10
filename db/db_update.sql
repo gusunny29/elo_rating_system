@@ -1,3 +1,2 @@
-
 select *
-from players;
+from matches

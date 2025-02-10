@@ -13,10 +13,6 @@ import {
   Checkbox,
   Divider
   
-  FormControlLabel,
-  Checkbox,
-  Divider
-  
 } from "@mui/material";
 import { Link } from "react-router-dom";
 
@@ -26,33 +22,21 @@ const calculateExpectedScore = (playerRating, opponentRating) => {
   return 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
 };
 
-const updateELO = (playerRating, opponentRating, result, scoreDifference) => {
-  const expectedScore = calculateExpectedScore(playerRating, opponentRating);
-  let ratingChange = K * (result - expectedScore);  // If result is 1, this is positive, if 0, negative
-
-  // Adjust rating change based on score difference
-  if (scoreDifference > 15) {
-    ratingChange *= 1.5;  // More significant change for dominant wins
-  }
-
-  // If the result is 0.5 (draw or close loss), apply a smaller change
-  if (result === 0.5) {
-    ratingChange *= 0.8;
-  }
-
-  // If the player loses, ensure rating goes down
-  if (result === 0) {
-    ratingChange = -Math.abs(ratingChange);  // Force a decrease in rating on loss
-  }
-
-  return playerRating + ratingChange;  // Return the updated rating
-};
-
 
 // Function to assign baseline ELO (1200) if not already set
 const getPlayerELO = (player) => {
   return player.elo_rating || 1200; // Use player's ELO rating, default to 1200
 };
+
+const recordMatchResult = async(matchData) => {
+  // Make a POST request to the server to record the match result
+  try {
+    await axios.post("http://127.0.0.1:5000/api/matches", matchData);
+    console.log("Match recorded successfully.");
+  } catch (error) {
+    console.error("Error recording match result:", error);
+  }
+}
 
 const MatchdayDashboard = ({ selectedPlayers }) => {
   const [matchups, setMatchups] = useState([]);
@@ -152,19 +136,19 @@ const MatchdayDashboard = ({ selectedPlayers }) => {
   //finsih this below 
 
   const updatePlayerELOInDatabase = (playerId, newEloRating) => {
-  axios
-    .post("http://127.0.0.1:5000/api/updateElo", {
-      playerId: playerId,
-      elo_rating: newEloRating
-    })
-    .then((response) => {
-      console.log("Player ELO updated: ${response.data}");
-      // Optionally update the state or perform any other action
-    })
-    .catch((error) => {
-      console.error("Error updating player ELO:", error);
-    });
-};
+    axios
+      .post("http://127.0.0.1:5000/api/updateElo", {
+        playerId: playerId,
+        elo_rating: newEloRating
+      })
+      .then((response) => {
+        console.log("Player ELO updated: ${response.data}");
+        // Optionally update the state or perform any other action
+      })
+      .catch((error) => {
+        console.error("Error updating player ELO:", error);
+      });
+  };
 
   const handleScoreChange = (index, team, set, value) => {
     const updatedMatchups = [...matchups];
@@ -176,72 +160,83 @@ const MatchdayDashboard = ({ selectedPlayers }) => {
     setMatchups(updatedMatchups);
   };
 
-  const handleMatchResult = (index) => {
+  const handleMatchResult = async (index) => {
     const updatedMatchups = [...matchups];
     const matchup = updatedMatchups[index];
 
-    // Calculate the total score for each team
+    // Calculate total scores
     const team1Score = matchup.team1Score.reduce((a, b) => parseInt(a || 0) + parseInt(b || 0), 0);
     const team2Score = matchup.team2Score.reduce((a, b) => parseInt(a || 0) + parseInt(b || 0), 0);
 
-    // Determine winner based on the total score
+    // Determine winner
     const winner = team1Score > team2Score ? "team1" : "team2";
-
-    // Calculate ELO adjustments based on match result and score difference
+    const loser = winner === "team1" ? "team2" : "team1";
     const scoreDifference = Math.abs(team1Score - team2Score);
 
+    // Store player updates with pre & post ELO
     const updatedPlayers = selectedPlayers.map((player) => {
-      // Determine if the player is part of team1 or team2
       const isTeam1Player = matchup.team1.some(p => p.name === player.name);
       const isTeam2Player = matchup.team2.some(p => p.name === player.name);
 
-      // For team 1 players, the result is 1 if their team wins, otherwise 0
-      // For team 2 players, the result is 1 if their team wins, otherwise 0
-      let playerResult = 0; // Default loss
-      if (isTeam1Player && winner === "team1") {
-        playerResult = 1; // Team 1 wins, so player wins
-      } else if (isTeam2Player && winner === "team2") {
-        playerResult = 1; // Team 2 wins, so player wins
-      }
+      let playerResult = 0;
+      if (isTeam1Player && winner === "team1") playerResult = 1;
+      if (isTeam2Player && winner === "team2") playerResult = 1;
 
-      // Get the player's current ELO
       const playerELO = getPlayerELO(player);
-
-      // Calculate the opponent's ELO (average of the opposing team)
-      const opponentELO = isTeam1Player
-        ? matchup.team2ELO
-        : matchup.team1ELO;
-
-      // Calculate the expected score for this player
+      const opponentELO = isTeam1Player ? matchup.team2ELO : matchup.team1ELO;
       const expectedScore = calculateExpectedScore(playerELO, opponentELO);
-
-      // Calculate the rating change for this player based on the result
+      
       let ratingChange = K * (playerResult - expectedScore);
+      if (scoreDifference > 15) ratingChange *= 1.5;
 
-      // Adjust rating change based on score difference and match result
-      ratingChange *= scoreDifference > 15 ? 1.5 : 1; // More change for dominant wins
-
-      // Update the player's ELO
       const updatedELO = playerELO + ratingChange;
-
-      // Update the player's state in the match
       player.elo_rating = updatedELO;
 
-      // Update ELO in the database if necessary
-      if (isTeam1Player) {
-        updatePlayerELOInDatabase(player.id, updatedELO); // Update ELO in the database for Team 1
-      } else if (isTeam2Player) {
-        updatePlayerELOInDatabase(player.id, updatedELO); // Update ELO in the database for Team 2
-      }
+      updatePlayerELOInDatabase(player.id, updatedELO);
 
-      return { ...player, elo_rating: updatedELO };
+      return { ...player, elo_rating: updatedELO, elo_before: playerELO };
     });
 
-    // Update the matchups state with the new ELOs and set the results
+    // Find players' pre & post ELOs
+    const getUpdatedELO = (name) => updatedPlayers.find(p => p.name === name).elo_rating;
+    const getPreELO = (name) => updatedPlayers.find(p => p.name === name).elo_before;
+
+    // Format match data according to your database schema
+    const matchData = {
+      team1_player1: matchup.team1[0].name,
+      team1_player2: matchup.team1[1].name,
+      team2_player1: matchup.team2[0].name,
+      team2_player2: matchup.team2[1].name,
+      match_date: new Date().toISOString().split("T")[0], // Format as YYYY-MM-DD
+      team1_g1_score: parseInt(matchup.team1Score[0]) || null,
+      team2_g1_score: parseInt(matchup.team2Score[0]) || null,
+      team1_g2_score: parseInt(matchup.team1Score[1]) || null,
+      team2_g2_score: parseInt(matchup.team2Score[1]) || null,
+      team1_g3_score: parseInt(matchup.team1Score[2]) || null,
+      team2_g3_score: parseInt(matchup.team2Score[2]) || null,
+      winner: winner === "team1" ? `${matchup.team1[0].name}, ${matchup.team1[1].name}` 
+              : `${matchup.team2[0].name}, ${matchup.team2[1].name}`,
+      // Store Pre/Post ELO for all players
+      player_1_pre_elo: getPreELO(matchup.team1[0].name),
+      player_2_pre_elo: getPreELO(matchup.team1[1].name),
+      player_3_pre_elo: getPreELO(matchup.team2[0].name),
+      player_4_pre_elo: getPreELO(matchup.team2[1].name),
+      player_1_post_elo: getUpdatedELO(matchup.team1[0].name),
+      player_2_post_elo: getUpdatedELO(matchup.team1[1].name),
+      player_3_post_elo: getUpdatedELO(matchup.team2[0].name),
+      player_4_post_elo: getUpdatedELO(matchup.team2[1].name),
+    };
+
+    await recordMatchResult(matchData);
+
+    // Update matchups state
     updatedMatchups[index].winner = winner;
     setPlayers(updatedPlayers);
     setMatchups(updatedMatchups);
   };
+
+
+
   const handleSettingChange = (event) => {
     const { name, checked } = event.target;
     setSettings((prevState) => ({
@@ -325,10 +320,9 @@ const MatchdayDashboard = ({ selectedPlayers }) => {
       </Box>
       {renderSelectedPlayers()}
 
-      <Typography variant="h4">Matchday Dashboard</Typography>
 
       {/* Mode Selection */}
-      <Box sx={{ marginBottom: "24px" }}>
+      <Box sx={{ marginBottom: "24px", marginTop: "24px"}}>
         <Typography variant="h6">Select Matchup Mode:</Typography>
         <Button
           variant={matchupMode === "auto" ? "contained" : "outlined"}
