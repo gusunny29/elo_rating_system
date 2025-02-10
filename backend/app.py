@@ -72,6 +72,40 @@ def add_player():
     )
 
 
+@app.route("/api/updateElo", methods=["POST"])
+def update_elo():
+    try:
+        # Extract playerId and new ELO rating from the request
+        player_id = request.json["playerId"]
+        new_elo_rating = request.json["elo_rating"]
+
+        # Connect to the database
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Update player's ELO in the database
+        cur.execute(
+            "UPDATE players SET elo_rating = %s WHERE player_id = %s;",
+            (new_elo_rating, player_id),
+        )
+        conn.commit()
+
+        # Close the cursor and connection
+        cur.close()
+        conn.close()
+
+        # Return success response with updated player information
+        return jsonify({"player_id": player_id, "new_elo_rating": new_elo_rating}), 200
+
+    except Exception as e:
+        # Handle any errors that might occur
+        print(f"Error: {e}")
+        return (
+            jsonify({"error": "An error occurred while updating the player's ELO"}),
+            500,
+        )
+
+
 # API to create a match
 @app.route("/api/match", methods=["POST"])
 def create_match():
