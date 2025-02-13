@@ -39,7 +39,10 @@ const recordMatchResult = async(matchData) => {
 }
 
 const MatchdayDashboard = ({ selectedPlayers }) => {
-  const [matchups, setMatchups] = useState([]);
+  const [matchups, setMatchups] = useState(() => {
+    const storedMatchups = JSON.parse(localStorage.getItem("matchups"));
+    return storedMatchups || [];
+  });
   const [playersWithoutMatchups, setPlayersWithoutMatchups] = useState([]);
   const [players, setPlayers] = useState(selectedPlayers);
   const [matchupMode, setMatchupMode] = useState("auto");
@@ -129,6 +132,9 @@ const MatchdayDashboard = ({ selectedPlayers }) => {
     // Update the state with matchups and players without matchups
     setMatchups(newMatchups);
     setPlayersWithoutMatchups(playersNotInMatchups);
+
+    localStorage.setItem("matchups", JSON.stringify(newMatchups));
+
   };
 
 
@@ -233,6 +239,9 @@ const MatchdayDashboard = ({ selectedPlayers }) => {
     updatedMatchups[index].winner = winner;
     setPlayers(updatedPlayers);
     setMatchups(updatedMatchups);
+
+    // Store updated matchups in local storage
+    localStorage.setItem("matchups", JSON.stringify(updatedMatchups));
   };
 
 

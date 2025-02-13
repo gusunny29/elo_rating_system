@@ -30,12 +30,14 @@ const Players = ({ setSelectedPlayers }) => {
     axios
       .get("http://127.0.0.1:5000/api/players")
       .then((response) => {
+
+        const storedPlayers = JSON.parse(localStorage.getItem("selectedPlayers")) || [];
         // Initialize the 'is_playing' state locally
         const playersData = response.data.map((player) => ({
           id: player[0],
           name: player[1],
           elo_rating: player[2],
-          is_playing: false, // Set this to false initially
+          is_playing: storedPlayers.some((p) => p.id === player[0]), // Set this to false initially
         }));
         setPlayers(playersData);
       })
@@ -43,6 +45,10 @@ const Players = ({ setSelectedPlayers }) => {
         console.error("Error fetching players:", error);
       });
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("selectedPlayers", JSON.stringify(players.filter((p) => p.is_playing)));
+  }, [players]);
 
   // Handle checkbox change
   const handleCheckboxChange = (id, checked) => {
@@ -58,8 +64,11 @@ const Players = ({ setSelectedPlayers }) => {
     axios
       .delete(`http://127.0.0.1:5000/api/players/${id}`)
       .then(() => {
-        setPlayers(players.filter((player) => player.id !== id)); // Remove player from state
-        setOpen(false); // Close dialog
+        const updatedPlayers = players.filter((player) => player.id !== id);
+        setPlayers(updatedPlayers);
+        setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing));
+        localStorage.setItem("selectedPlayers", JSON.stringify(updatedPlayers.filter((p) => p.is_playing)));
+        setOpen(false);
       })
       .catch((error) => {
         console.error("Error deleting player:", error);
@@ -89,6 +98,8 @@ const Players = ({ setSelectedPlayers }) => {
     }));
     setPlayers(updatedPlayers); // Update state
     setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing)); // Update selected players
+    localStorage.setItem("selectedPlayers", JSON.stringify(updatedPlayers.filter((p) => p.is_playing)));
+
   };
 
   // Render table headers

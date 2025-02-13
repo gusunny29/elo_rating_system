@@ -21,7 +21,10 @@ const calculateExpectedScore = (playerRating, opponentRating) => {
 };
 
 const ManualMatchup = ({ selectedPlayers }) => {
-  const [manualMatchups, setManualMatchups] = useState([]);
+  const [manualMatchups, setManualMatchups] = useState(() => {
+    const storedMatchups = JSON.parse(localStorage.getItem("manualMatchups"));
+    return storedMatchups || [];
+  });
   const [selectedManualPlayers, setSelectedManualPlayers] = useState([]);
   const [usedPlayers, setUsedPlayers] = useState(new Set()); // Track players used in matchups
   const [players, setPlayers] = useState(selectedPlayers);
@@ -32,28 +35,27 @@ const ManualMatchup = ({ selectedPlayers }) => {
     const team1 = [selectedManualPlayers[0], selectedManualPlayers[1]];
     const team2 = [selectedManualPlayers[2], selectedManualPlayers[3]];
 
-    const newTeam1ELO = (getPlayerELO(team1[0]) + getPlayerELO(team1[1])) / 2;
-    const newTeam2ELO = (getPlayerELO(team2[0]) + getPlayerELO(team2[1])) / 2;
+    const newMatchup = {
+      team1: team1.map(p => ({ name: p.name, id: p.id, elo_rating: getPlayerELO(p) })),
+      team2: team2.map(p => ({ name: p.name, id: p.id, elo_rating: getPlayerELO(p) })),
+      team1Score: ["", "", ""],
+      team2Score: ["", "", ""],
+      winner: ""
+    };
 
-    setManualMatchups([
-      ...manualMatchups,
-      {
-        team1: team1.map(p => ({ name: p.name, id: p.id, elo_rating: getPlayerELO(p) })),
-        team2: team2.map(p => ({ name: p.name, id: p.id, elo_rating: getPlayerELO(p) })),
-        team1ELO: newTeam1ELO,
-        team2ELO: newTeam2ELO,
-        team1Score: ["", "", ""],
-        team2Score: ["", "", ""],
-        winner: ""
-      }
-    ]);
+    const updatedMatchups = [...manualMatchups, newMatchup];
+    setManualMatchups(updatedMatchups);
 
-    // Mark players as "used" so they cannot be selected again
+    // Mark players as "used"
     setUsedPlayers(new Set([...usedPlayers, ...selectedManualPlayers.map(p => p.id)]));
 
-    // Reset selected players for the next matchup
+    // Reset selection
     setSelectedManualPlayers([]);
+
+    // Save to localStorage
+    localStorage.setItem("manualMatchups", JSON.stringify(updatedMatchups));
   };
+
 
   const handleScoreChange = (index, team, set, value) => {
     const updatedMatchups = [...manualMatchups];
@@ -152,6 +154,9 @@ const ManualMatchup = ({ selectedPlayers }) => {
     // Update matchups state
     updatedMatchups[index].winner = winner;
     setPlayers(updatedPlayers);
+
+    localStorage.setItem("manualMatchups", JSON.stringify(updatedMatchups));
+
     setManualMatchups(updatedMatchups);
   };
 
