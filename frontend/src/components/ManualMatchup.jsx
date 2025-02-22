@@ -16,10 +16,6 @@ const recordMatchResult = async(matchData) => {
   }
 }
 
-const calculateExpectedScore = (playerRating, opponentRating) => {
-  return 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
-};
-
 const ManualMatchup = ({ selectedPlayers }) => {
   const [manualMatchups, setManualMatchups] = useState(() => {
     const storedMatchups = JSON.parse(localStorage.getItem("manualMatchups"));
@@ -82,7 +78,7 @@ const ManualMatchup = ({ selectedPlayers }) => {
       });
   };
 
- const handleSubmitMatchResult = async (index) => {
+  const handleSubmitMatchResult = async (index) => {
     const updatedMatchups = [...manualMatchups];
     const matchup = updatedMatchups[index];
 
@@ -90,46 +86,54 @@ const ManualMatchup = ({ selectedPlayers }) => {
     const team1Score = matchup.team1Score.reduce((a, b) => parseInt(a || 0) + parseInt(b || 0), 0);
     const team2Score = matchup.team2Score.reduce((a, b) => parseInt(a || 0) + parseInt(b || 0), 0);
 
-    // Determine winner
+    // Determine winner & loser
     const winner = team1Score > team2Score ? "team1" : "team2";
     const loser = winner === "team1" ? "team2" : "team1";
-    const scoreDifference = Math.abs(team1Score - team2Score);
 
-    // Store player updates with pre & post ELO
+    // Extract team members
+    const team1 = matchup.team1;
+    const team2 = matchup.team2;
+
+    // Calculate average ELO of opponents
+    const avgELO_team1 = (getPlayerELO(team1[0]) + getPlayerELO(team1[1])) / 2;
+    const avgELO_team2 = (getPlayerELO(team2[0]) + getPlayerELO(team2[1])) / 2;
+
+    // Function to calculate new ELO based on your formula
+    const calculateNewELO = (playerELO, avgOpponentELO, isWinner) => {
+      const adjustment = (K * avgOpponentELO) / playerELO;
+      return isWinner ? playerELO + adjustment : playerELO - adjustment;
+    };
+
+    // Update ELOs for all players
     const updatedPlayers = selectedPlayers.map((player) => {
-      const isTeam1Player = matchup.team1.some(p => p.name === player.name);
-      const isTeam2Player = matchup.team2.some(p => p.name === player.name);
+      const isTeam1Player = team1.some(p => p.name === player.name);
+      const isTeam2Player = team2.some(p => p.name === player.name);
 
-      let playerResult = 0;
-      if (isTeam1Player && winner === "team1") playerResult = 1;
-      if (isTeam2Player && winner === "team2") playerResult = 1;
+      let newELO = getPlayerELO(player);
+      const oldELO = newELO;
 
-      const playerELO = getPlayerELO(player);
-      const opponentELO = isTeam1Player ? matchup.team2ELO : matchup.team1ELO;
-      const expectedScore = calculateExpectedScore(playerELO, opponentELO);
-      
-      let ratingChange = K * (playerResult - expectedScore);
-      if (scoreDifference > 15) ratingChange *= 1.5;
+      if (isTeam1Player) {
+        newELO = calculateNewELO(newELO, avgELO_team2, winner === "team1");
+      } else if (isTeam2Player) {
+        newELO = calculateNewELO(newELO, avgELO_team1, winner === "team2");
+      }
 
-      const updatedELO = playerELO + ratingChange;
-      player.elo_rating = updatedELO;
+      updatePlayerELOInDatabase(player.id, newELO);
 
-      updatePlayerELOInDatabase(player.id, updatedELO);
-
-      return { ...player, elo_rating: updatedELO, elo_before: playerELO };
+      return { ...player, elo_rating: newELO, elo_before: oldELO };
     });
 
-    // Find players' pre & post ELOs
+    // Helper function to get updated ELO
     const getUpdatedELO = (name) => updatedPlayers.find(p => p.name === name).elo_rating;
     const getPreELO = (name) => updatedPlayers.find(p => p.name === name).elo_before;
 
-    // Format match data according to your database schema
+    // Format match data for the backend
     const matchData = {
       team1_player1: matchup.team1[0].name,
       team1_player2: matchup.team1[1].name,
       team2_player1: matchup.team2[0].name,
       team2_player2: matchup.team2[1].name,
-      match_date: new Date().toISOString().split("T")[0], // Format as YYYY-MM-DD
+      match_date: new Date().toISOString().split("T")[0], // YYYY-MM-DD
       team1_g1_score: parseInt(matchup.team1Score[0]) || null,
       team2_g1_score: parseInt(matchup.team2Score[0]) || null,
       team1_g2_score: parseInt(matchup.team1Score[1]) || null,

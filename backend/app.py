@@ -215,6 +215,24 @@ def input_matches():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/players/<int:player_id>", methods=["PATCH"])
+def update_player(player_id):
+    data = request.json
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "UPDATE players SET name = %s, elo_rating = %s WHERE id = %s",
+        (data["name"], data["elo_rating"], player_id),
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"message": "Player updated successfully"}), 200
+
+
 # ✅ API to create a match & update player Elo
 @app.route("/api/match", methods=["POST"])
 def create_match():

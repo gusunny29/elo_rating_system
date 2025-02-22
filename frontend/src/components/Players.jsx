@@ -16,13 +16,17 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  TextField,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 
 const Players = ({ setSelectedPlayers }) => {
   const [players, setPlayers] = useState([]);
-  const [open, setOpen] = useState(false);
+  const [openDelete, setOpenDelete] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [editPlayerData, setEditPlayerData] = useState({ name: "", elo_rating: "" });
   const [selectAll, setSelectAll] = useState(false);
 
   // Fetch players from backend (without the 'is_playing' field)
@@ -55,17 +59,29 @@ const Players = ({ setSelectedPlayers }) => {
     const updatedPlayers = players.map((player) =>
       player.id === id ? { ...player, is_playing: checked } : player
     );
-    setPlayers(updatedPlayers); // Update state
-    setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing)); // Update selected players
+    setPlayers(updatedPlayers);
+    setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing));
   };
 
-  // Handle delete
+  // Open the delete confirmation dialog
+  const handleClickOpenDelete = (player) => {
+    setSelectedPlayer(player);
+    setOpenDelete(true);
+  };
+
+  // Close the delete confirmation dialog
+  const handleCloseDelete = () => {
+    setOpenDelete(false);
+    setSelectedPlayer(null);
+  };
+
+  // Handle delete player
   const handleDelete = (id) => {
     axios
       .delete(`http://127.0.0.1:5000/api/players/${id}`)
       .then(() => {
-        const updatedPlayers = players.filter((player) => player.id !== id);
-        setPlayers(updatedPlayers);
+        setPlayers(players.filter((player) => player.id !== id));
+        setOpenDelete(false);
         setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing));
         localStorage.setItem("selectedPlayers", JSON.stringify(updatedPlayers.filter((p) => p.is_playing)));
         setOpen(false);
@@ -75,16 +91,43 @@ const Players = ({ setSelectedPlayers }) => {
       });
   };
 
-  // Open the delete confirmation dialog
-  const handleClickOpen = (player) => {
+  // Open edit player dialog
+  const handleClickOpenEdit = (player) => {
     setSelectedPlayer(player);
-    setOpen(true);
+    setEditPlayerData({ name: player.name, elo_rating: player.elo_rating });
+    setOpenEdit(true);
   };
 
-  // Close the delete confirmation dialog
-  const handleClose = () => {
-    setOpen(false);
+  // Close edit player dialog
+  const handleCloseEdit = () => {
+    setOpenEdit(false);
     setSelectedPlayer(null);
+  };
+
+  // Handle edit input changes
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
+    setEditPlayerData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handle player update (PATCH request)
+  const handleUpdatePlayer = () => {
+    if (!selectedPlayer) return;
+
+    axios
+      .patch(`http://127.0.0.1:5000/api/players/${selectedPlayer.id}`, editPlayerData)
+      .then(() => {
+        const updatedPlayers = players.map((player) =>
+          player.id === selectedPlayer.id
+            ? { ...player, ...editPlayerData }
+            : player
+        );
+        setPlayers(updatedPlayers);
+        setOpenEdit(false);
+      })
+      .catch((error) => {
+        console.error("Error updating player:", error);
+      });
   };
 
   // Handle 'Select All' functionality
@@ -94,7 +137,7 @@ const Players = ({ setSelectedPlayers }) => {
 
     const updatedPlayers = players.map((player) => ({
       ...player,
-      is_playing: newSelectAllState, // Update 'is_playing' based on selectAll
+      is_playing: newSelectAllState,
     }));
     setPlayers(updatedPlayers); // Update state
     setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing)); // Update selected players
@@ -139,56 +182,56 @@ const Players = ({ setSelectedPlayers }) => {
     </TableBody>
   );
 
-  // Render delete confirmation dialog
-  const renderDeleteDialog = () => (
-    <Dialog open={open} onClose={handleClose}>
-      <DialogTitle>Confirm Deletion</DialogTitle>
-      <DialogContent>
-        <Typography variant="body1">
-          Are you sure you want to delete {selectedPlayer?.name}?
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} color="primary">
-          Cancel
-        </Button>
-        <Button
-          onClick={() => handleDelete(selectedPlayer.id)}
-          color="error"
-        >
-          Confirm
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-
-  // Render select all button
-  const renderSelectAllButton = () => (
-    <Button
-      variant="outlined"
-      onClick={handleSelectAll}
-      style={{ marginBottom: "16px" }}
-    >
-      {selectAll ? "Deselect All" : "Select All"}
-    </Button>
-  );
-
-  return (
-    <div>
-      <Typography variant="h6">Player Rankings</Typography>
-
-      {/* Select All Button */}
-      {renderSelectAllButton()}
-
-      <TableContainer component={Paper}>
-        <Table>
-          {renderTableHeaders()}
-          {renderPlayerRows()}
-        </Table>
-      </TableContainer>
-
       {/* Delete Confirmation Dialog */}
-      {renderDeleteDialog()}
+      <Dialog open={openDelete} onClose={handleCloseDelete}>
+        <DialogTitle>Confirm Deletion</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Are you sure you want to delete {selectedPlayer?.name}?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDelete} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={() => handleDelete(selectedPlayer.id)} color="error">
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Player Dialog */}
+      <Dialog open={openEdit} onClose={handleCloseEdit}>
+        <DialogTitle>Edit Player</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Name"
+            name="name"
+            value={editPlayerData.name}
+            onChange={handleEditChange}
+            fullWidth
+          />
+          <TextField
+            margin="dense"
+            label="Elo Rating"
+            name="elo_rating"
+            type="number"
+            value={editPlayerData.elo_rating}
+            onChange={handleEditChange}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEdit} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={handleUpdatePlayer} color="primary">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
