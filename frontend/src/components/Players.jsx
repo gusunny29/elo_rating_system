@@ -21,8 +21,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 
-const Players = ({ setSelectedPlayers }) => {
-  const [players, setPlayers] = useState([]);
+const Players = ({ players, setSelectedPlayers, refreshPlayers, setPlayers  }) => {
   const [openDelete, setOpenDelete] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -48,11 +47,7 @@ const Players = ({ setSelectedPlayers }) => {
       .catch((error) => {
         console.error("Error fetching players:", error);
       });
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("selectedPlayers", JSON.stringify(players.filter((p) => p.is_playing)));
-  }, [players]);
+  }, [setPlayers]);
 
   // Handle checkbox change
   const handleCheckboxChange = (id, checked) => {
@@ -85,6 +80,7 @@ const Players = ({ setSelectedPlayers }) => {
         setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing));
         localStorage.setItem("selectedPlayers", JSON.stringify(updatedPlayers.filter((p) => p.is_playing)));
         setOpen(false);
+        refreshPlayers();
       })
       .catch((error) => {
         console.error("Error deleting player:", error);
@@ -123,6 +119,7 @@ const Players = ({ setSelectedPlayers }) => {
             : player
         );
         setPlayers(updatedPlayers);
+        refreshPlayers();
         setOpenEdit(false);
       })
       .catch((error) => {

@@ -58,12 +58,14 @@ def add_player():
     try:
         name = request.json["name"]
         elo_rating = request.json["elo_rating"]
+        wins = request.json["wins"]
+        losses = request.json["losses"]
 
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO players (name, elo_rating) VALUES (%s, %s) RETURNING id;",
-            (name, elo_rating),
+            "INSERT INTO players (name, elo_rating, wins, losses) VALUES (%s, %s, %s, %s) RETURNING id;",
+            (name, elo_rating, wins, losses),
         )
         new_player_id = cur.fetchone()[0]
 
@@ -72,7 +74,15 @@ def add_player():
         conn.close()
 
         return (
-            jsonify({"id": new_player_id, "name": name, "elo_rating": elo_rating}),
+            jsonify(
+                {
+                    "id": new_player_id,
+                    "name": name,
+                    "elo_rating": elo_rating,
+                    "wins": wins,
+                    "losses": losses,
+                }
+            ),
             201,
         )
 

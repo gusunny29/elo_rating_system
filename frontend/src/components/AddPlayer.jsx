@@ -4,25 +4,27 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 
-const AddPlayer = () => {
+
+
+const AddPlayer = ({ refreshPlayers }) => {
   const [name, setName] = useState("");
   const [eloRating, setEloRating] = useState(0.0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Make a POST request to add a new player
     axios
       .post("http://127.0.0.1:5000/api/players", {
         name,
         elo_rating: eloRating,
+        wins: 0,
+        losses: 0
       })
       .then((response) => {
-        alert(
-          `Player ${response.data.name} added with Elo rating of ${response.data.elo_rating}!`
-        );
+        alert(`Player ${response.data.name} added with Elo rating of ${response.data.elo_rating}!`);
         setName("");
-        setEloRating(0.0); // Reset the form after submission
+        setEloRating(0.0); // Reset the form
+        refreshPlayers(); // Fetch updated players list
       })
       .catch((error) => {
         console.error("There was an error adding the player!", error);
@@ -58,3 +60,4 @@ const AddPlayer = () => {
 };
 
 export default AddPlayer;
+
