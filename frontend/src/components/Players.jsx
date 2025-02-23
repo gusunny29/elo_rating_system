@@ -33,14 +33,11 @@ const Players = ({ players, setSelectedPlayers, refreshPlayers, setPlayers  }) =
     axios
       .get("http://127.0.0.1:5000/api/players")
       .then((response) => {
-
-        const storedPlayers = JSON.parse(localStorage.getItem("selectedPlayers")) || [];
-        // Initialize the 'is_playing' state locally
         const playersData = response.data.map((player) => ({
           id: player[0],
           name: player[1],
           elo_rating: player[2],
-          is_playing: storedPlayers.some((p) => p.id === player[0]), // Set this to false initially
+          is_playing: false,
         }));
         setPlayers(playersData);
       })
@@ -77,9 +74,6 @@ const Players = ({ players, setSelectedPlayers, refreshPlayers, setPlayers  }) =
       .then(() => {
         setPlayers(players.filter((player) => player.id !== id));
         setOpenDelete(false);
-        setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing));
-        localStorage.setItem("selectedPlayers", JSON.stringify(updatedPlayers.filter((p) => p.is_playing)));
-        setOpen(false);
         refreshPlayers();
       })
       .catch((error) => {
@@ -136,48 +130,60 @@ const Players = ({ players, setSelectedPlayers, refreshPlayers, setPlayers  }) =
       ...player,
       is_playing: newSelectAllState,
     }));
-    setPlayers(updatedPlayers); // Update state
-    setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing)); // Update selected players
-    localStorage.setItem("selectedPlayers", JSON.stringify(updatedPlayers.filter((p) => p.is_playing)));
-
+    setPlayers(updatedPlayers);
+    setSelectedPlayers(updatedPlayers.filter((player) => player.is_playing));
   };
 
-  // Render table headers
-  const renderTableHeaders = () => (
-    <TableHead>
-      <TableRow>
-        <TableCell>Name</TableCell>
-        <TableCell>Elo Rating</TableCell>
-        <TableCell>Playing</TableCell>
-        <TableCell>Delete</TableCell>
-      </TableRow>
-    </TableHead>
-  );
+  return (
+    <div>
+      <Typography variant="h6">Player Rankings</Typography>
 
-  // Render table rows for each player
-  const renderPlayerRows = () => (
-    <TableBody>
-      {players.map((player) => (
-        <TableRow key={player.id}>
-          <TableCell>{player.name}</TableCell>
-          <TableCell>{player.elo_rating}</TableCell>
-          <TableCell>
-            <Checkbox
-              checked={player.is_playing}
-              onChange={(e) =>
-                handleCheckboxChange(player.id, e.target.checked)
-              }
-            />
-          </TableCell>
-          <TableCell>
-            <IconButton onClick={() => handleClickOpen(player)} color="error">
-              <DeleteIcon />
-            </IconButton>
-          </TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  );
+      {/* Select All Button */}
+      <Button
+        variant="outlined"
+        onClick={handleSelectAll}
+        style={{ marginBottom: "16px" }}
+      >
+        {selectAll ? "Deselect All" : "Select All"}
+      </Button>
+
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Elo Rating</TableCell>
+              <TableCell>Playing</TableCell>
+              <TableCell>Edit</TableCell>
+              <TableCell>Delete</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {players.map((player) => (
+              <TableRow key={player.id}>
+                <TableCell>{player.name}</TableCell>
+                <TableCell>{player.elo_rating}</TableCell>
+                <TableCell>
+                  <Checkbox
+                    checked={player.is_playing}
+                    onChange={(e) => handleCheckboxChange(player.id, e.target.checked)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleClickOpenEdit(player)} color="primary">
+                    <EditIcon />
+                  </IconButton>
+                </TableCell>
+                <TableCell>
+                  <IconButton onClick={() => handleClickOpenDelete(player)} color="error">
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={openDelete} onClose={handleCloseDelete}>
